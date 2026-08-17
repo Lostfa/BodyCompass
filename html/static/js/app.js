@@ -49,10 +49,10 @@ function renderModeBOptions(defaults) {
     const vertContainer = document.getElementById('step3VertGrid');
     if (vertContainer) {
       vertContainer.innerHTML = '';
-      const renderGroup = (label, verts) => {
+      const renderGroup = (key, verts) => {
         const groupDiv = document.createElement('div');
         groupDiv.className = 'vertebra-group';
-        groupDiv.innerHTML = `<span class="vertebra-group-label">${label}</span>`;
+        groupDiv.innerHTML = `<span class="vertebra-group-label" data-i18n="${key}">${t(key)}</span>`;
         verts.forEach(v => {
           const item = document.createElement('div');
           item.className = 'tag-item';
@@ -63,9 +63,9 @@ function renderModeBOptions(defaults) {
         });
         vertContainer.appendChild(groupDiv);
       };
-      if (cervical.length) renderGroup(t('step3.cervical'), cervical);
-      if (thoracic.length) renderGroup(t('step3.thoracic'), thoracic);
-      if (lumbar.length)   renderGroup(t('step3.lumbar'), lumbar);
+      if (cervical.length) renderGroup('step3.cervical', cervical);
+      if (thoracic.length) renderGroup('step3.thoracic', thoracic);
+      if (lumbar.length)   renderGroup('step3.lumbar', lumbar);
     }
   }
 
@@ -85,7 +85,7 @@ function renderModeBOptions(defaults) {
       <div class="custom-range-row">
         <label class="custom-range-check">
           <input type="checkbox" id="rg_custom_enable">
-          ${t('step3.customRange')}
+          <span data-i18n="step3.customRange">${t('step3.customRange')}</span>
         </label>
         <input type="range" id="rg_custom_slider" min="1" max="30" value="15" step="1"
                disabled oninput="document.getElementById('rg_custom_val').textContent=this.value">
@@ -141,7 +141,7 @@ function initStep1() {
     const inputPath = document.getElementById('step1InputPath').value;
     const inputType = AppState.preprocess.inputType;
     if (!inputPath) {
-      showStatusBox('step1ScanStatus', 'error', t('js.noInputPath'));
+      showStatusBox('step1ScanStatus', 'error', 'js.noInputPath');
       return;
     }
     try {
@@ -150,10 +150,10 @@ function initStep1() {
       AppState.preprocess.inputPath = inputPath;
 
       renderPatientTable('step1PatientTable', AppState.preprocess.patients, true, [], AppState.preprocess.inputType);
-      showStatusBox('step1ScanStatus', 'info',
-        t('js.scanFoundDetail', {n: `<b>${result.total}</b>`, type: inputType === 'dicom' ? t('js.dicomSeries') : t('js.niftiFiles')}));
+      showStatusBox('step1ScanStatus', 'info', 'js.scanFoundDetail',
+        {n: `<b>${result.total}</b>`, type: inputType === 'dicom' ? 'DICOM' : 'NIfTI'});
     } catch (e) {
-      showStatusBox('step1ScanStatus', 'error', t('js.scanFailMsg', {msg: e.message}));
+      showStatusBox('step1ScanStatus', 'error', 'js.scanFailMsg', {msg: e.message});
     }
   });
 
@@ -185,7 +185,7 @@ function initStep1() {
     const selectedIds = getSelectedPatientIds('step1PatientTable');
 
     if (!inputPath || !outputPath) {
-      showStatusBox('step1ScanStatus', 'error', t('js.noInputOrWorkDir'));
+      showStatusBox('step1ScanStatus', 'error', 'js.noInputOrWorkDir');
       return;
     }
 
@@ -212,15 +212,16 @@ function initStep1() {
 
       document.getElementById('btnStartPreprocess').disabled = true;
       document.getElementById('btnCancelStep1').style.display = 'inline-flex';
+      switchRightTab('console');
 
       runTaskWithUI(result.task_id, 'step1Progress', 'step1Log',
         () => {
           document.getElementById('btnStartPreprocess').disabled = false;
           document.getElementById('btnCancelStep1').style.display = 'none';
-          showStatusBox('step1ScanStatus', 'success', t('js.preprocessDone2'));
+          showStatusBox('step1ScanStatus', 'success', 'js.preprocessDone2');
         },
         (res) => {
-          showStatusBox('step1ScanStatus', 'success', t('js.preprocessDone', {s: res.success_count || 0, f: res.fail_count || 0}));
+          showStatusBox('step1ScanStatus', 'success', 'js.preprocessDone', {s: res.success_count || 0, f: res.fail_count || 0});
         },
         () => {
           document.getElementById('btnStartPreprocess').disabled = false;
@@ -228,13 +229,12 @@ function initStep1() {
         }
       );
     } catch (e) {
-      showStatusBox('step1ScanStatus', 'error', t('js.startFailMsg', {msg: e.message}));
+      showStatusBox('step1ScanStatus', 'error', 'js.startFailMsg', {msg: e.message});
     }
   });
 
   document.getElementById('btnCancelStep1').addEventListener('click', () => {
     if (AppState.preprocess.taskId) apiCancelTask(AppState.preprocess.taskId);
-    cancelActiveTask();
     document.getElementById('btnStartPreprocess').disabled = false;
     document.getElementById('btnCancelStep1').style.display = 'none';
   });
@@ -263,24 +263,31 @@ function initStep2() {
       AppState.boa.boaAvailable = result.boa_available;
       AppState.boa.gpuAvailable = result.gpu_available;
 
-      let cls = 'info';
-      let icon = '[i] ';
-      if (result.boa_available) { icon = '[OK] '; cls = 'success'; }
-      else { icon = '[X] '; cls = 'error'; }
+      const okTag = (ok) => ok ? `[OK] ${t('step2.envOk')}` : `[X] ${t('step2.envFail')}`;
+      const condaVal = result.conda_env
+        ? `${okTag(true)} (${result.conda_env})`
+        : okTag(false);
+      const boaVal = result.boa_available
+        ? `${okTag(true)} (${result.boa_command})`
+        : `${okTag(false)} (${result.message})`;
+      const gpuFirst = String(result.gpu_info || '').split('\n')[0].trim();
+      const gpuVal = result.gpu_available ? `${okTag(true)} (${gpuFirst})` : okTag(false);
 
-      let info = `${result.message}`;
-      if (result.gpu_available) {
-        const gpuLine = String(result.gpu_info).split('\n')[0].trim();
-        info += `<br>GPU: ${gpuLine}`;
-      }
-
-      showStatusBox('step2EnvStatus', cls, `${icon}${info}`);
+      const html = `<div class="env-rows">
+        <div class="env-row"><span class="env-key">${t('step2.envConda')}</span><span class="env-val">${condaVal}</span></div>
+        <div class="env-row"><span class="env-key">${t('step2.envBoa')}</span><span class="env-val">${boaVal}</span></div>
+        <div class="env-row"><span class="env-key">${t('step2.envGpu')}</span><span class="env-val">${gpuVal}</span></div>
+      </div>`;
+      showStatusBox('step2EnvStatus', result.boa_available ? 'success' : 'error', html);
     } catch (e) {
-      showStatusBox('step2EnvStatus', 'error', t('js.scanFailMsg', {msg: e.message}));
+      showStatusBox('step2EnvStatus', 'error', 'js.scanFailMsg', {msg: e.message});
     }
   });
 
-  document.getElementById('btnRefreshBOA').addEventListener('click', refreshBOAPatients);
+  // 扫描NIfTI文件（步骤2）
+  document.getElementById('btnScanStep2').addEventListener('click', () => {
+    refreshBOAPatients();
+  });
 
   // 浏览图像（步骤2）
   document.getElementById('btnViewImage2').addEventListener('click', async () => {
@@ -289,7 +296,7 @@ function initStep2() {
     const basePath = document.getElementById('step2WorkDir').value || AppState.baseWorkingDir;
     switchRightTab('viewer');
     try {
-      await viewerLoadNifti(`${basePath}/ct_image/${ids[0]}.nii.gz`, ids[0]);
+      await viewerLoadNifti(`${basePath}/ct_image/${ids[0]}.nii.gz`, ids[0], basePath);
     } catch (e) {
       alert(t('js.viewerLoadFail', {msg: e.message}));
     }
@@ -305,7 +312,7 @@ function initStep2() {
     const models = checkedModels.length > 0 ? checkedModels.join('+') : 'total+bca';
 
     if (!basePath || selectedIds.length === 0) {
-      showStatusBox('step2EnvStatus', 'error', t('js.selectSeries'));
+      showStatusBox('step2EnvStatus', 'error', 'js.selectSeries');
       return;
     }
 
@@ -318,6 +325,7 @@ function initStep2() {
       AppState.boa.taskId = result.task_id;
       document.getElementById('btnStartBOA').disabled = true;
       document.getElementById('btnCancelStep2').style.display = 'inline-flex';
+      switchRightTab('console');
 
       showStatusBox('step2EnvStatus', 'info', result.message);
 
@@ -325,11 +333,11 @@ function initStep2() {
         () => {
           document.getElementById('btnStartBOA').disabled = false;
           document.getElementById('btnCancelStep2').style.display = 'none';
-          showStatusBox('step2EnvStatus', 'success', t('js.allDone'));
+          showStatusBox('step2EnvStatus', 'success', 'js.allDone');
           refreshBOAPatients();
         },
         (res) => {
-          showStatusBox('step2EnvStatus', 'success', t('js.segDone', {s: res.success_count || 0, f: res.fail_count || 0}));
+          showStatusBox('step2EnvStatus', 'success', 'js.segDone', {s: res.success_count || 0, f: res.fail_count || 0});
         },
         () => {
           document.getElementById('btnStartBOA').disabled = false;
@@ -337,25 +345,37 @@ function initStep2() {
         }
       );
     } catch (e) {
-      showStatusBox('step2EnvStatus', 'error', t('js.startFailMsg', {msg: e.message}));
+      showStatusBox('step2EnvStatus', 'error', 'js.startFailMsg', {msg: e.message});
     }
   });
 
   document.getElementById('btnCancelStep2').addEventListener('click', () => {
     if (AppState.boa.taskId) apiCancelTask(AppState.boa.taskId);
-    cancelActiveTask();
     document.getElementById('btnStartBOA').disabled = false;
     document.getElementById('btnCancelStep2').style.display = 'none';
+    // 停止后刷新序列列表（最后一个不完整结果已被后端删除）
+    setTimeout(refreshBOAPatients, 2000);
   });
 }
 
 // ===== 步骤3: 统计分析 =====
 
-async function refreshStep3Patients() {
-  const workDir = AppState.baseWorkingDir;
-  if (!workDir) return;
+/** 由ct_image目录推导工作根目录（用于兼容默认目录结构） */
+function _baseFromCtDir(ctDir) {
+  const norm = (ctDir || '').replace(/\\/g, '/').replace(/\/+$/, '');
+  if (/\/ct_image$/i.test(norm)) return norm.slice(0, -'/ct_image'.length);
+  return '';
+}
+
+async function refreshStep3Patients(ctDir, labelDir) {
+  if (!ctDir && !labelDir) {
+    const workDir = AppState.baseWorkingDir;
+    if (!workDir) return;
+    ctDir = workDir + '/ct_image';
+    labelDir = workDir + '/boa_label';
+  }
   try {
-    const result = await apiGetBOAPatients(workDir);
+    const result = await apiGetBOAPatients('', ctDir, labelDir);
     AppState.analysis.patients = result.patients || [];
     renderPatientTable('step3PatientTable', AppState.analysis.patients, true, [], null);
     // 绑定选择变化以刷新标签下拉
@@ -382,7 +402,10 @@ async function onStep3SelectionChange() {
     return;
   }
   try {
-    const resp = await apiGet('/api/viewer/labels', { base_path: AppState.baseWorkingDir, series_id: ids[0] });
+    const labelDir = document.getElementById('step3LabelDir').value.trim();
+    const resp = await apiGet('/api/viewer/labels', {
+      base_path: AppState.baseWorkingDir, series_id: ids[0], label_dir: labelDir,
+    });
     const labels = resp.labels || [];
     if (labels.length === 0) {
       select.innerHTML = `<option value="">${t('viewer.noLabel')}</option>`;
@@ -415,25 +438,29 @@ function initStep3() {
   });
 
   document.getElementById('btnScanDirs').addEventListener('click', async () => {
+    let ctDir = document.getElementById('step3CtDir').value.trim();
+    let labelDir = document.getElementById('step3LabelDir').value.trim();
     const workDir = AppState.baseWorkingDir;
-    if (!workDir) {
-      showStatusBox('step3ScanStatus', 'error', t('js.noWorkingDirStep3'));
+    if (!ctDir) ctDir = workDir ? workDir + '/ct_image' : '';
+    if (!labelDir) labelDir = workDir ? workDir + '/boa_label' : '';
+    if (!ctDir || !labelDir) {
+      showStatusBox('step3ScanStatus', 'error', 'js.noWorkingDirStep3');
       return;
     }
-    document.getElementById('step3CtDir').value = workDir + '/ct_image';
-    document.getElementById('step3LabelDir').value = workDir + '/boa_label';
+    document.getElementById('step3CtDir').value = ctDir;
+    document.getElementById('step3LabelDir').value = labelDir;
 
     try {
-      const result = await apiScanAnalysisDirs(workDir);
+      const result = await apiScanAnalysisDirs(workDir || ctDir, ctDir, labelDir);
       if (result.ct_count === 0 && result.label_count === 0) {
-        showStatusBox('step3ScanStatus', 'error', t('js.scanNoData'));
+        showStatusBox('step3ScanStatus', 'error', 'js.scanNoData');
       } else {
-        showStatusBox('step3ScanStatus', 'info',
-          t('js.scanResult', {ct: `<b>${result.ct_count}</b>`, lb: `<b>${result.label_count}</b>`}));
+        showStatusBox('step3ScanStatus', 'info', 'js.scanResult',
+          {ct: `<b>${result.ct_count}</b>`, lb: `<b>${result.label_count}</b>`});
       }
-      await refreshStep3Patients();
+      await refreshStep3Patients(ctDir, labelDir);
     } catch (e) {
-      showStatusBox('step3ScanStatus', 'error', t('js.scanFailMsg', {msg: e.message}));
+      showStatusBox('step3ScanStatus', 'error', 'js.scanFailMsg', {msg: e.message});
     }
   });
 
@@ -441,9 +468,11 @@ function initStep3() {
   document.getElementById('btnViewImage3').addEventListener('click', async () => {
     const ids = getSelectedPatientIds('step3PatientTable');
     if (ids.length !== 1) { alert(t('viewer.selectOne')); return; }
+    const ctDir = document.getElementById('step3CtDir').value.trim();
+    const labelDir = document.getElementById('step3LabelDir').value.trim();
     switchRightTab('viewer');
     try {
-      await viewerLoadNifti(`${AppState.baseWorkingDir}/ct_image/${ids[0]}.nii.gz`, ids[0]);
+      await viewerLoadNifti(`${ctDir}/${ids[0]}.nii.gz`, ids[0], _baseFromCtDir(ctDir), labelDir);
       await onStep3SelectionChange();
     } catch (e) {
       alert(t('js.viewerLoadFail', {msg: e.message}));
@@ -455,9 +484,11 @@ function initStep3() {
     const ids = getSelectedPatientIds('step3PatientTable');
     const labelName = document.getElementById('step3LabelSelect').value;
     if (ids.length !== 1 || !labelName) { alert(t('viewer.selectOneAndLabel')); return; }
+    const ctDir = document.getElementById('step3CtDir').value.trim();
+    const labelDir = document.getElementById('step3LabelDir').value.trim();
     switchRightTab('viewer');
     try {
-      await viewerShowLabel(AppState.baseWorkingDir, ids[0], labelName);
+      await viewerShowLabel(AppState.baseWorkingDir, ids[0], labelName, { ctDir, labelDir });
     } catch (e) {
       alert(t('js.viewerLoadFail', {msg: e.message}));
     }
@@ -498,16 +529,17 @@ function initStep3() {
       AppState.analysis.taskId = result.task_id;
       document.getElementById('btnStartModeB').disabled = true;
       document.getElementById('btnCancelStep3').style.display = 'inline-flex';
+      switchRightTab('console');
 
       runTaskWithUI(result.task_id, 'step3Progress', 'step3Log',
         () => {
           document.getElementById('btnStartModeB').disabled = false;
           document.getElementById('btnCancelStep3').style.display = 'none';
-          showStatusBox('step3Status', 'success', t('js.statsDone'));
+          showStatusBox('step3Status', 'success', 'js.statsDone');
         },
         (res) => {
-          showStatusBox('step3Status', 'success',
-            t('js.analysisDone', {n: res.total_patients, s: res.success_tasks}));
+          showStatusBox('step3Status', 'success', 'js.analysisDone',
+            {n: res.total_patients, s: res.success_tasks});
         },
         () => {
           document.getElementById('btnStartModeB').disabled = false;
@@ -515,13 +547,12 @@ function initStep3() {
         }
       );
     } catch (e) {
-      showStatusBox('step3Status', 'error', t('js.startFailMsg', {msg: e.message}));
+      showStatusBox('step3Status', 'error', 'js.startFailMsg', {msg: e.message});
     }
   });
 
   document.getElementById('btnCancelStep3').addEventListener('click', () => {
     if (AppState.analysis.taskId) apiCancelTask(AppState.analysis.taskId);
-    cancelActiveTask();
     document.getElementById('btnStartModeB').disabled = false;
     document.getElementById('btnCancelStep3').style.display = 'none';
   });
@@ -532,7 +563,7 @@ function initStep3() {
 async function refreshExportData() {
   const basePath = document.getElementById('step4BasePath').value || AppState.baseWorkingDir;
   if (!basePath) {
-    showStatusBox('step4Status', 'error', t('js.noWorkingDir'));
+    showStatusBox('step4Status', 'error', 'js.noWorkingDir');
     return;
   }
   try {
@@ -541,15 +572,15 @@ async function refreshExportData() {
     AppState.export.scanResult = result;
 
     if (result.total > 0) {
-      showStatusBox('step4Status', 'info',
-        t('js.scanCSVFound', {n: `<b>${result.total}</b>`, c: `<b>${result.total_csv_files || 0}</b>`}));
+      showStatusBox('step4Status', 'info', 'js.scanCSVFound',
+        {n: `<b>${result.total}</b>`, c: `<b>${result.total_csv_files || 0}</b>`});
     } else {
-      showStatusBox('step4Status', 'error', t('js.scanCSVEmpty'));
+      showStatusBox('step4Status', 'error', 'js.scanCSVEmpty');
     }
 
     renderExportScanOptions(result);
   } catch (e) {
-    showStatusBox('step4Status', 'error', t('js.scanFailMsg', {msg: e.message}));
+    showStatusBox('step4Status', 'error', 'js.scanFailMsg', {msg: e.message});
   }
 }
 
@@ -583,10 +614,10 @@ function renderExportScanOptions(result) {
     const lumbar   = vertebrae.filter(v => v.startsWith('L')).sort(numSort);
 
     vertGrid.innerHTML = '';
-    const renderGroup = (label, verts) => {
+    const renderGroup = (key, verts) => {
       const groupDiv = document.createElement('div');
       groupDiv.className = 'vertebra-group';
-      groupDiv.innerHTML = `<span class="vertebra-group-label">${label}</span>`;
+      groupDiv.innerHTML = `<span class="vertebra-group-label" data-i18n="${key}">${t(key)}</span>`;
       verts.forEach(v => {
         const item = document.createElement('div');
         item.className = 'tag-item';
@@ -597,9 +628,9 @@ function renderExportScanOptions(result) {
       });
       vertGrid.appendChild(groupDiv);
     };
-    if (cervical.length) renderGroup(t('step4.cervical'), cervical);
-    if (thoracic.length) renderGroup(t('step4.thoracic'), thoracic);
-    if (lumbar.length)   renderGroup(t('step4.lumbar'), lumbar);
+    if (cervical.length) renderGroup('step4.cervical', cervical);
+    if (thoracic.length) renderGroup('step4.thoracic', thoracic);
+    if (lumbar.length)   renderGroup('step4.lumbar', lumbar);
   } else if (vertGrid) {
     vertGrid.innerHTML = `<span style="font-size:12px;color:#999;">${t('js.noVertData')}</span>`;
   }
@@ -637,12 +668,13 @@ function initStep4() {
       const result = await apiGenerateMerge(basePath, includeAll, singleVert, ranges, [], tissues, metrics, null);
       AppState.export.taskId = result.task_id;
       document.getElementById('btnStep4Generate').disabled = true;
+      switchRightTab('console');
 
       runTaskWithUI(result.task_id, 'step4Progress', 'step4Log',
         async () => {
           document.getElementById('btnStep4Generate').disabled = false;
           document.getElementById('btnStep4Download').style.display = 'inline-flex';
-          showStatusBox('step4Status', 'success', t('js.tableGenerated'));
+          showStatusBox('step4Status', 'success', 'js.tableGenerated');
           try {
             const preview = await apiPreviewMerge(result.task_id);
             renderPreviewTable(preview);

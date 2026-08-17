@@ -23,7 +23,7 @@ from tasks.manager import task_manager
 app = FastAPI(
     title="BodyCompass - CT组织成分统计分析平台",
     description="从CT图像中分割软组织成分并生成统计结果的综合Web平台",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 # ---- CORS中间件（允许前端开发时的跨域请求） ----
@@ -99,7 +99,7 @@ async def favicon():
 @app.get("/api/health")
 async def health_check():
     """健康检查端点"""
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", "version": "1.1.0"}
 
 
 @app.get("/api/config")

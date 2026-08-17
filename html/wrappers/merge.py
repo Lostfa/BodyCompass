@@ -1,4 +1,4 @@
-﻿"""
+"""
 结果合并包装器
 提供CSV数据扫描和合并功能。
 包含：
@@ -232,7 +232,7 @@ def generate_merged_csv(
                 row[col] = ""
 
         result_rows.append(row)
-        task_obj.advance(1, f"({idx + 1}/{len(patient_dirs)}) 处理: {pid}")
+        task_obj.advance(1, f"({idx + 1}/{len(patient_dirs)}) Processing: {pid}")
 
     # 生成CSV
     if not result_rows:

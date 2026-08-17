@@ -70,8 +70,11 @@ async def stream_task(task_id: str):
             """构建单条SSE事件消息"""
             return f"event: {event}\ndata: {data}\n\n"
 
-        # 持续轮询直到任务结束
-        while task.status in (TaskStatus.QUEUED, TaskStatus.RUNNING):
+        # 持续轮询直到任务结束（取消时等待工作线程收尾，
+        # 以便停止后的完成/未完成统计日志能推送到前端）
+        while task.status in (TaskStatus.QUEUED, TaskStatus.RUNNING) or (
+            task._thread is not None and task._thread.is_alive()
+        ):
             # 检查是否有新日志
             current_log_len = len(task.log)
             if current_log_len > last_log_index:

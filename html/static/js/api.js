@@ -171,15 +171,15 @@ function apiStartBOA(basePath, patientIds, models) {
     models: models || 'all',
   });
 }
-function apiGetBOAPatients(basePath) {
-  return apiGet('/api/boa/patients', { base_path: basePath });
+function apiGetBOAPatients(basePath, ctDir, labelDir) {
+  return apiGet('/api/boa/patients', { base_path: basePath, ct_dir: ctDir, label_dir: labelDir });
 }
 
 // ===== 分析API =====
 
 function apiGetAnalysisDefaults() { return apiGet('/api/analysis/config/defaults'); }
-function apiScanAnalysisDirs(workDir) {
-  return apiPost('/api/analysis/scan-dirs', { work_dir: workDir });
+function apiScanAnalysisDirs(workDir, ctDir, labelDir) {
+  return apiPost('/api/analysis/scan-dirs', { work_dir: workDir, ct_dir: ctDir || '', label_dir: labelDir || '' });
 }
 function apiStartModeB(basePath, workers, vertebrae, ranges, includeAll,
                        thresholdEnabled = false, fatMin = -190, fatMax = -30,

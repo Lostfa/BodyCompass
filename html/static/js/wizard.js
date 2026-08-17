@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 步骤导航与状态管理模块
  * 管理4步向导流程、步骤间数据传递、右侧面板标签页切换和UI状态更新。
  */
@@ -147,7 +147,14 @@ function updateStepPanel() {
   }
 
   if (AppState.activeStep === 2) refreshBOAPatients();
-  if (AppState.activeStep === 3) refreshStep3Patients();
+  if (typeof viewerSetSag2Mode === 'function') {
+    viewerSetSag2Mode(AppState.activeStep === 3);
+  }
+  if (AppState.activeStep === 3) {
+    const ctDir = document.getElementById('step3CtDir').value.trim();
+    const labelDir = document.getElementById('step3LabelDir').value.trim();
+    refreshStep3Patients(ctDir, labelDir);
+  }
   if (AppState.activeStep === 4) {
     document.getElementById('step4ScanOptions').style.display = 'none';
     document.getElementById('step4Status').style.display = 'none';
@@ -217,17 +224,21 @@ function appendLog(containerId, message, level) {
 function clearLog(containerId) {
   const panel = document.getElementById('consoleLog');
   if (panel) {
-    panel.innerHTML = `<div class="console-empty">${t('console.ready')}</div>`;
+    panel.innerHTML = '<div class="console-empty">Waiting for tasks...</div>';
   }
 }
 
 function clearConsole() {
   clearLog();
   showProgress('', false);
-  document.getElementById('consoleStatus').textContent = t('console.cleared');
+  document.getElementById('consoleStatus').textContent = 'Cleared';
 }
 
-function showStatusBox(boxId, type, message) {
+function showStatusBox(boxId, type, messageOrKey, params) {
+  const entry = (typeof I18N !== 'undefined') ? I18N[messageOrKey] : undefined;
+  const message = entry ? t(messageOrKey, params) : messageOrKey;
+  // 控制台始终显示英文
+  const enMessage = entry ? tEn(messageOrKey, params) : messageOrKey;
   const box = document.getElementById(boxId);
   if (box) {
     box.className = `status-box ${type}`;
@@ -240,7 +251,7 @@ function showStatusBox(boxId, type, message) {
     if (type === 'success') label = '[OK] ';
     else if (type === 'error') label = '[ERROR] ';
     else if (type === 'warning') label = '[WARN] ';
-    statusEl.textContent = label + message.replace(/<[^>]*>/g, '');
+    statusEl.textContent = label + enMessage.replace(/<[^>]*>/g, '');
   }
 }
 
@@ -256,7 +267,8 @@ function runTaskWithUI(taskId, progressContainerId, logContainerId,
   showProgress(progressContainerId, true);
   showLogPanel(logContainerId, true);
   clearLog(logContainerId);
-  updateProgress(progressContainerId, 0, t('js.taskSubmitted'));
+  // 控制台内容始终使用英文
+  updateProgress(progressContainerId, 0, 'Task submitted, waiting to start...');
 
   try {
     activeTaskStream = apiStreamTask(taskId, {
@@ -265,13 +277,13 @@ function runTaskWithUI(taskId, progressContainerId, logContainerId,
       },
       onLog: (msg) => {
         let level = '';
-        if (msg.includes('[OK]') || msg.includes('[DONE]') || msg.includes('[成功]') || msg.includes('完成')) level = 'success';
-        else if (msg.includes('[FAIL]') || msg.includes('[ERROR]') || msg.includes('[EXCEPTION]') || msg.includes('[失败]') || msg.includes('[异常]') || msg.includes('[错误]')) level = 'error';
-        else if (msg.includes('[WARN]') || msg.includes('[警告]')) level = 'warn';
+        if (msg.includes('[OK]') || msg.includes('[DONE]') || msg.includes('completed') || msg.includes('done')) level = 'success';
+        else if (msg.includes('[FAIL]') || msg.includes('[ERROR]') || msg.includes('[EXCEPTION]') || msg.includes('failed')) level = 'error';
+        else if (msg.includes('[WARN]')) level = 'warn';
         appendLog(logContainerId, msg, level);
       },
       onComplete: () => {
-        updateProgress(progressContainerId, 100, t('js.taskDone'));
+        updateProgress(progressContainerId, 100, 'Task completed');
         showLogPanel(logContainerId, false);
         if (onComplete) onComplete();
       },
@@ -279,12 +291,12 @@ function runTaskWithUI(taskId, progressContainerId, logContainerId,
         if (onResult) onResult(result);
       },
       onError: (err) => {
-        updateProgress(progressContainerId, 0, `${t('js.errorPrefix')}${err}`);
+        updateProgress(progressContainerId, 0, `Error: ${err}`);
         appendLog(logContainerId, `[ERROR] ${err}`, 'error');
         if (onError) onError(err);
       },
       onCancelled: () => {
-        updateProgress(progressContainerId, 0, t('js.taskCancelled'));
+        // 保留后端推送的最后一条消息（如停止后的完成/未完成统计）
       },
     });
   } catch (e) {
@@ -296,14 +308,14 @@ function runTaskWithUI(taskId, progressContainerId, logContainerId,
         appendLog(logContainerId, msg, '');
       },
       onComplete: () => {
-        updateProgress(progressContainerId, 100, t('js.taskDone'));
+        updateProgress(progressContainerId, 100, 'Task completed');
         if (onComplete) onComplete();
       },
       onResult: (result) => {
         if (onResult) onResult(result);
       },
       onError: (err) => {
-        updateProgress(progressContainerId, 0, `${t('js.errorPrefix')}${err}`);
+        updateProgress(progressContainerId, 0, `Error: ${err}`);
         if (onError) onError(err);
       },
     });
@@ -358,7 +370,9 @@ function renderPatientTable(containerId, patients, checkboxes = false, selectedI
       html += `<td>${p.image_spacing || 'N/A'}</td>`;
     } else {
       const status = p.status || '';
-      const detail = p.file_count ? `${p.file_count} ${t('table.files')}` : (p.existing_files || []).join(', ') || (p.csv_files || []).length + ` ${t('table.csvFiles')}`;
+      const detail = p.file_count
+        ? `${p.file_count} ${t('table.files')}`
+        : ((p.existing_files || []).length ? (p.existing_files || []).join(', ') : t('table.noLabelFolder'));
       let statusClass = '';
       if (status === 'done' || status === 'completed') statusClass = 'text-success';
       else if (status === 'pending') statusClass = 'text-muted';
@@ -461,7 +475,7 @@ function initWizard() {
     syncWorkingDirs(e.target.value);
   });
 
-  const sliderMap = { sliderAxial: 'vpAxial', sliderSagittal: 'vpSagittal', sliderCoronal: 'vpCoronal' };
+  const sliderMap = { sliderAxial: 'vpAxial', sliderSagittal: 'vpSagittal', sliderCoronal: 'vpCoronal', sliderSagittal2: 'vpSagittal2' };
   Object.entries(sliderMap).forEach(([sliderId, vpId]) => {
     const slider = document.getElementById(sliderId);
     if (slider) slider.addEventListener('input', (e) => viewerSliderInput(vpId, e.target.value));

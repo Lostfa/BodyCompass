@@ -1,11 +1,14 @@
 """
 BOA 分割 API
-提供 BOA 环境检测、分割启动和状态查询的 HTTP 端点。
+提供 BOA 环境检测、分割启动/停止和状态查询的 HTTP 端点。
 
 BOA 在 conda 环境中以命令行方式运行，每张 CT 图像依次处理。
 输出为标准 NIfTI 标签文件：bca.nii.gz, total.nii.gz, tissues.nii.gz
 """
 import os
+import shutil
+import threading
+import time
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -15,6 +18,7 @@ from wrappers.boa import (
     check_boa_environment,
     run_boa_segmentation,
     get_segmentation_status,
+    get_segmentation_status_dirs,
 )
 
 router = APIRouter(prefix="/api/boa", tags=["BOA分割"])
@@ -87,8 +91,7 @@ async def start_boa_segmentation(request: StartBOARequest):
     def _run(task_obj):
         for i, p in enumerate(valid_patients):
             if task_obj.is_cancelled:
-                task_obj.update(task_obj.progress, "Task cancelled")
-                return
+                break
 
             pid = p["patient_id"]
             progress_pct = int(i / len(valid_patients) * 100)
@@ -105,6 +108,15 @@ async def start_boa_segmentation(request: StartBOARequest):
                     models=request.models,
                 )
 
+                # 监视线程：任务取消时立即终止BOA进程
+                def _watch(pr=proc, to=task_obj):
+                    while pr.poll() is None:
+                        if to.is_cancelled:
+                            pr.kill()
+                            return
+                        time.sleep(0.5)
+                threading.Thread(target=_watch, daemon=True).start()
+
                 # 实时读取并转发 BOA 输出到任务日志
                 output_lines = []
                 for line in proc.stdout:
@@ -116,6 +128,12 @@ async def start_boa_segmentation(request: StartBOARequest):
                             task_obj.log.append(f"[BOA:{pid}] {line[:200]}")
 
                 proc.wait()
+
+                # 停止分割：删除当前（可能不完整的）分割结果
+                if task_obj.is_cancelled:
+                    shutil.rmtree(p["output_dir"], ignore_errors=True)
+                    task_obj.log.append(f"[WARN] {pid}: segmentation stopped, incomplete result removed")
+                    break
 
                 if proc.returncode == 0:
                     result_container["success_count"] += 1
@@ -130,7 +148,7 @@ async def start_boa_segmentation(request: StartBOARequest):
                     })
                 else:
                     # 返回码非零，显示最后的错误信息
-                    last_lines = "\n".join(output_lines[-5:]) if output_lines else "无输出"
+                    last_lines = "\n".join(output_lines[-5:]) if output_lines else "no output"
                     result_container["fail_count"] += 1
                     task_obj.advance(
                         1,
@@ -152,9 +170,23 @@ async def start_boa_segmentation(request: StartBOARequest):
                     "success": False,
                     "error": str(e),
                 })
+                if task_obj.is_cancelled:
+                    shutil.rmtree(p["output_dir"], ignore_errors=True)
+                    break
 
         task_obj.result = result_container
-        task_obj.update(100, f"BOA segmentation all done: {result_container['success_count']} OK, {result_container['fail_count']} failed")
+        if task_obj.is_cancelled:
+            finished = result_container["success_count"]
+            unfinished = len(valid_patients) - finished
+            task_obj.update(
+                task_obj.progress,
+                f"BOA segmentation stopped: {finished} completed, {unfinished} unfinished"
+            )
+            task_obj.log.append(
+                f"[WARN] BOA stopped: {finished} completed, {unfinished} unfinished"
+            )
+        else:
+            task_obj.update(100, f"BOA segmentation all done: {result_container['success_count']} OK, {result_container['fail_count']} failed")
 
     task.start(_run)
 
@@ -171,9 +203,12 @@ async def start_boa_segmentation(request: StartBOARequest):
 
 
 @router.get("/patients")
-async def list_boa_patients(base_path: str):
-    """列出所有患者的分割完成状态"""
-    patients = get_segmentation_status(base_path)
+async def list_boa_patients(base_path: str = "", ct_dir: str = "", label_dir: str = ""):
+    """列出所有患者的分割完成状态（支持自定义ct_image/boa_label目录）"""
+    if ct_dir and label_dir:
+        patients = get_segmentation_status_dirs(ct_dir, label_dir)
+    else:
+        patients = get_segmentation_status(base_path)
     done = sum(1 for p in patients if p["status"] == "done")
     return {
         "patients": patients,

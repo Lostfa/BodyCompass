@@ -186,6 +186,17 @@ def run_boa_segmentation(
 def get_segmentation_status(base_path: str) -> List[dict]:
     """
     扫描 BOA 分割结果目录，获取每位患者的分割完成状态及预处理图像信息。
+    等价于 get_segmentation_status_dirs(base_path/ct_image, base_path/boa_label)。
+    """
+    return get_segmentation_status_dirs(
+        os.path.join(base_path, "ct_image"),
+        os.path.join(base_path, "boa_label"),
+    )
+
+
+def get_segmentation_status_dirs(ct_dir: str, label_dir: str) -> List[dict]:
+    """
+    扫描指定的 ct_image / boa_label 目录，获取每位患者的分割完成状态。
 
     检查三个关键输出文件：
     - bca.nii.gz       (身体成分分析)
@@ -193,18 +204,9 @@ def get_segmentation_status(base_path: str) -> List[dict]:
     - tissues.nii.gz   (组织成分)
 
     同时读取 ct_image/ 中预处理后NIfTI文件的图像尺寸和体素间距。
-
-    参数:
-        base_path: 工作根目录（包含 boa_label/ 子目录）
-
-    返回:
-        每位患者的分割状态列表（含image_size, image_spacing）
     """
     import glob as _glob
     from wrappers.preprocess import _get_nifti_image_info
-
-    label_dir = os.path.join(base_path, "boa_label")
-    ct_dir = os.path.join(base_path, "ct_image")
 
     if not os.path.isdir(ct_dir):
         return []
@@ -216,7 +218,8 @@ def get_segmentation_status(base_path: str) -> List[dict]:
 
     for ct_path in ct_files:
         filename = os.path.basename(ct_path)
-        patient_id = filename.replace(".nii.gz", "")
+        patient_id = filename[:-7] if filename.lower().endswith(".nii.gz") else filename
+        patient_id = patient_id.strip()
         patient_label_dir = os.path.join(label_dir, patient_id)
 
         # 读取预处理后NIfTI的图像尺寸和体素间距

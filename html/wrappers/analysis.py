@@ -1,4 +1,4 @@
-﻿"""
+"""
 统计分析包装器
 包装 pipline/statistic/ 中的现有统计计算逻辑。
 支持模式B（单次检查）：并行处理所有患者的多项分析任务。
@@ -62,15 +62,15 @@ def _process_single_patient_modeb(args_tuple: tuple) -> Tuple[str, List[str]]:
         ct_array, bca_array, total_array, tissues_array, voxel_volume, z_ratio = \
             load_image_files(base_path, patient_id)
     except Exception as e:
-        return patient_id, [f"[异常] {patient_id}: 数据加载失败 —— {e}"]
+        return patient_id, [f"[EXCEPTION] {patient_id}: data loading failed - {e}"]
 
     def _save_csv(label, stats_df, range_val):
         if not stats_df.empty:
             save_results_to_csv(stats_df, base_path=base_path, patient_id=patient_id,
                                 vertebra_name=label, analysis_range=range_val)
-            return f"[成功] {patient_id}: {label}"
+            return f"[OK] {patient_id}: {label}"
         else:
-            return f"[失败] {patient_id}: {label} —— 未生成结果"
+            return f"[FAIL] {patient_id}: {label} - no result generated"
 
     # 1) 全图分析
     if include_all:
@@ -89,18 +89,18 @@ def _process_single_patient_modeb(args_tuple: tuple) -> Tuple[str, List[str]]:
             try:
                 center = get_vertebra_center_coordinates(bca_array, total_array, vertebra)
                 if center is None:
-                    messages.append(f"[失败] {patient_id}: {label} —— 未找到椎体中心")
+                    messages.append(f"[FAIL] {patient_id}: {label} - vertebra center not found")
                     continue
                 center_slice = np.zeros_like(total_array)
                 center_slice[center[0], :, :] = 1
                 tissue_region, range_val = extract_vertebra_region(center_slice, tissues_array, r)
                 if tissue_region is None:
-                    messages.append(f"[失败] {patient_id}: {label} —— 无法提取组织区域")
+                    messages.append(f"[FAIL] {patient_id}: {label} - tissue region extraction failed")
                     continue
                 stats_df = calculate_tissue_statistics(ct_array, tissue_region, voxel_volume)
                 messages.append(_save_csv(label, stats_df, range_val))
             except Exception as e:
-                messages.append(f"[异常] {patient_id}: {label} —— {e}")
+                messages.append(f"[EXCEPTION] {patient_id}: {label} - {e}")
 
     return patient_id, messages
 
@@ -188,7 +188,7 @@ def _process_single_tissue_label(args: tuple):
     save_path = os.path.join(label_path, 'tissues.nii.gz')
     ImageIO.array2nii(np_tissue, save_path, spacing, origin, direction)
 
-    return patient_id, f"[成功] {patient_id}: 组织标签已生成"
+    return patient_id, f"[OK] {patient_id}: tissue labels generated"
 
 
 def run_mode_b_analysis(
@@ -223,7 +223,7 @@ def run_mode_b_analysis(
 
     patient_paths = sorted(glob.glob(f"{base_path}/ct_image/*.nii.gz"))
     if not patient_paths:
-        task_obj.update(100, "未找到CT图像文件")
+        task_obj.update(100, "No CT image files found")
         task_obj.result = {"total_patients": 0}
         return
 
@@ -244,7 +244,7 @@ def run_mode_b_analysis(
         muscle_min = custom_thresholds.get("muscle_min", -29)
         muscle_max = custom_thresholds.get("muscle_max", 150)
 
-        task_obj.update(0, f"Phase 1/2: 正在生成组织标签 (共 {total_patients} 个序列, {workers} 进程)...")
+        task_obj.update(0, f"Phase 1/2: generating tissue labels ({total_patients} series, {workers} workers)...")
 
         phase1_args = []
         for p in patient_paths:
@@ -275,23 +275,23 @@ def run_mode_b_analysis(
                         phase1_fail += 1
                         patient_path = future_to_patient[future]
                         pid = os.path.basename(patient_path)[:-7]
-                        task_obj.log.append(f"[失败] {pid}: 组织标签生成失败 —— {e}")
+                        task_obj.log.append(f"[FAIL] {pid}: tissue label generation failed - {e}")
                     task_obj.advance(1,
-                        f"Phase 1/2: 组织标签生成 [{phase1_completed}/{total_patients}]"
-                        + (f" ({phase1_fail} 失败)" if phase1_fail else "")
+                        f"Phase 1/2: tissue labels [{phase1_completed}/{total_patients}]"
+                        + (f" ({phase1_fail} failed)" if phase1_fail else "")
                     )
         except Exception as e:
-            task_obj.update(task_obj.progress, f"Phase 1 并行处理出错: {e}")
+            task_obj.update(task_obj.progress, f"Phase 1 parallel processing error: {e}")
             raise
 
         if task_obj.is_cancelled:
             return
 
-        task_obj.update(task_obj.progress, "Phase 1/2 完成，开始 Phase 2 统计分析...")
+        task_obj.update(task_obj.progress, "Phase 1/2 done, starting Phase 2 analysis...")
 
     # ===== Phase 2: 统计分析 =====
     task_obj.update(task_obj.progress,
-        f"发现 {total_patients} 个序列，使用 {workers} 个进程并行分析...")
+        f"Found {total_patients} series, analyzing with {workers} workers...")
 
     completed = 0
     success_count = 0
@@ -318,21 +318,21 @@ def run_mode_b_analysis(
                     pid, messages = future.result()
                     for msg in messages:
                         task_obj.log.append(msg)
-                        if "[成功]" in msg:
+                        if "[OK]" in msg:
                             success_count += 1
-                        elif "[失败]" in msg or "[异常]" in msg:
+                        elif "[FAIL]" in msg or "[EXCEPTION]" in msg:
                             fail_count += 1
                     phase_tag = "Phase 2/2: " if has_phase1 else ""
                     task_obj.advance(1,
-                        f"{phase_tag}[{completed}/{total_patients}] 序列 {pid} 分析完成"
-                        f"（成功{success_count}项）"
+                        f"{phase_tag}[{completed}/{total_patients}] series {pid} analyzed "
+                        f"({success_count} tasks OK)"
                     )
                 except Exception as e:
                     task_obj.advance(1,
-                        f"[{completed}/{total_patients}] 处理异常: {e}"
+                        f"[{completed}/{total_patients}] processing error: {e}"
                     )
     except Exception as e:
-        task_obj.update(task_obj.progress, f"并行处理出错: {e}")
+        task_obj.update(task_obj.progress, f"parallel processing error: {e}")
         raise
 
     task_obj.result = {

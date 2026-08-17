@@ -111,16 +111,18 @@ async def start_mode_b_analysis(request: ModeBRequest):
 
 class ScanDirsRequest(BaseModel):
     work_dir: str
+    ct_dir: str = ""
+    label_dir: str = ""
 
 
 @router.post("/scan-dirs")
 async def api_scan_dirs(request: ScanDirsRequest):
     """
-    扫描工作目录下的 ct_image/ 和 boa_label/ 文件夹，
-    返回 NIfTI 文件数量和标签子文件夹数量。
+    扫描 ct_image/ 和 boa_label/ 文件夹，返回 NIfTI 文件数量和标签子文件夹数量。
+    支持通过 ct_dir/label_dir 自定义目录，否则使用 work_dir 下的默认子目录。
     """
-    ct_dir = os.path.join(request.work_dir, "ct_image")
-    label_dir = os.path.join(request.work_dir, "boa_label")
+    ct_dir = request.ct_dir or os.path.join(request.work_dir, "ct_image")
+    label_dir = request.label_dir or os.path.join(request.work_dir, "boa_label")
     return scan_analysis_dirs(ct_dir, label_dir)
 
 

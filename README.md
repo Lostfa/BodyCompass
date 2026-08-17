@@ -1,4 +1,4 @@
-﻿# BodyCompass
+﻿# BodyCompass v1.1
 
 <img src="screenshot.png" alt="BodyCompass Screenshot" width="100%">
 
@@ -7,19 +7,37 @@ An integrated, interactive CT tissue composition analysis platform: from raw DIC
 ## Features
 
 - **Preprocessing**: DICOM / NIfTI input; resampling (0.5–2.5 mm), HU clipping, optional Gaussian blur
-- **BOA Segmentation**: runs the bundled Body-and-Organ-Analysis code (`boa/`) in the `boa` conda environment; outputs vertebra (total), BCA and tissue labels
+- **BOA Segmentation**: runs the bundled Body-and-Organ-Analysis code (`boa/`) in the `boa` conda environment; outputs vertebra (total), BCA and tissue labels; can be stopped mid-run (the incomplete result is removed automatically)
 - **Statistical Analysis**: 7 tissues (MUSCLE / BONE / SAT / VAT / IMAT / PAT / EAT) × 8 metrics (volume, max/min/mean/std/median/q1/q3 HU), whole-volume and per-vertebra (C2–L5) ranges, parallel processing
-- **Data Export**: merge per-series CSVs into a single table, preview and download
-- **Image Viewer**: 2×2 layout (axial / sagittal / coronal / image info), wheel & slider scrolling, left-click MPR cross-linking, soft-tissue / lung / bone window presets, label overlay with per-label colors and adjustable opacity (1–100%)
+- **Data Export**: merge per-series CSVs into a single table, preview in the side panel and download
+- **Image Viewer** (cornerstone.js, 2×2 layout):
+  - Axial / sagittal / coronal views plus a fourth panel: image info (steps 1–2) or vertebra-localization sagittal (step 3)
+  - Wheel & per-view sliders for slice browsing; left-click MPR cross-linking
+  - Soft-tissue / lung / bone window presets
+  - Label overlay with per-label colors and adjustable opacity (1–100%)
+  - Vertebra center lines (blue, 1-voxel) with vertebra name tags on the localization sagittal, computed with the same centroid method as the analysis module
 
 ## Project Structure
 
 ```
 ├── pipline/          # Core pipeline (preprocess / statistic / utils)
 ├── html/             # Web app (FastAPI backend + vanilla JS frontend)
+│   ├── api/          # REST endpoints (preprocess / boa / analysis / merge / viewer)
+│   ├── wrappers/     # Pipeline wrappers
+│   ├── tasks/        # Background task manager (SSE progress)
+│   ├── static/       # CSS / JS / vendored cornerstone bundle
+│   └── templates/    # index.html
 ├── boa/              # Bundled Body-and-Organ-Analysis code (BOA CLI)
-├── 2026_utils/       # Standalone image I/O utilities
 └── run.bat           # Windows launcher (activates conda env `boa`)
+```
+
+Working directory layout (set in the top bar):
+
+```
+<work_dir>/
+├── ct_image/         # preprocessed NIfTI ({series}.nii.gz)
+├── boa_label/        # segmentation labels per series
+└── statistic/        # per-series statistical CSVs
 ```
 
 ## Quick Start
@@ -38,16 +56,7 @@ cd html
 python -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://localhost:8000` and follow the 4-step wizard: Preprocessing → BOA Segmentation → Statistical Analysis → Data Export.
-
-Working directory layout (set in the top bar):
-
-```
-<work_dir>/
-├── ct_image/         # preprocessed NIfTI ({series}.nii.gz)
-├── boa_label/        # segmentation labels per series
-└── statistic/        # per-series statistical CSVs
-```
+Open `http://localhost:8000` and follow the 4-step wizard: Preprocessing → BOA Segmentation → Statistical Analysis → Data Export. The right panel switches between Console, Image Viewer and Data Table.
 
 ## Requirements
 

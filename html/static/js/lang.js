@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 国际化 (i18n) 模块
  * 支持中文(zh)和英文(en)，默认英文。
  * 控制台输出始终使用英文。
@@ -70,10 +70,16 @@ const I18N = {
   'step2.card2.subtitle':  { zh: '在 conda 环境中运行 BOA 命令行工具进行CT图像组织分割', en: 'Run the BOA CLI in the conda environment for CT tissue segmentation' },
   'step2.models':          { zh: '分割模型', en: 'Segmentation Models' },
   'step2.selectPatient':   { zh: '选择要分割的序列：', en: 'Select series to segment:' },
-  'step2.empty':           { zh: '请确认 ct_image/ 目录中有预处理完成的图像，然后点击刷新', en: 'Ensure preprocessed images exist in ct_image/, then refresh' },
-  'step2.refresh':         { zh: '刷新序列列表', en: 'Refresh Series List' },
-  'step2.start':           { zh: '启动 BOA 分割', en: 'Start BOA Segmentation' },
+  'step2.empty':           { zh: '请确认 ct_image/ 目录中有预处理完成的图像，然后点击"扫描NIfTI文件"', en: 'Ensure preprocessed images exist in ct_image/, then click Scan NIfTI Files' },
+  'step2.scanNifti':       { zh: '扫描NIfTI文件', en: 'Scan NIfTI Files' },
+  'step2.start':           { zh: '启动分割', en: 'Start Segmentation' },
+  'step2.stop':            { zh: '停止分割', en: 'Stop Segmentation' },
   'step2.timeNote':        { zh: '单个图像序列处理时间约数分钟至数十分钟，取决于图像层数和GPU', en: 'Each series takes minutes to tens of minutes depending on slice count and GPU' },
+  'step2.envConda':        { zh: 'Conda 环境', en: 'Conda Env' },
+  'step2.envBoa':          { zh: 'BOA 文件夹', en: 'BOA Folder' },
+  'step2.envGpu':          { zh: 'GPU', en: 'GPU' },
+  'step2.envOk':           { zh: '正常', en: 'OK' },
+  'step2.envFail':         { zh: '异常', en: 'Not Ready' },
 
   // ===== 步骤3 =====
   'step3.card1.title':     { zh: '文件路径配置', en: 'File Path Configuration' },
@@ -89,9 +95,9 @@ const I18N = {
   'step3.includeAll':      { zh: '全图分析 (ALL)', en: 'Whole-volume Analysis (ALL)' },
   'step3.singleVert':      { zh: '目标椎体', en: 'Target Vertebrae' },
   'step3.range':           { zh: '分析范围（mm）', en: 'Analysis Range (mm)' },
-  'step3.cervical':        { zh: '颈椎 C', en: 'Cervical (C)' },
-  'step3.thoracic':        { zh: '胸椎 T', en: 'Thoracic (T)' },
-  'step3.lumbar':          { zh: '腰椎 L', en: 'Lumbar (L)' },
+  'step3.cervical':        { zh: '颈椎 C', en: 'Cervical' },
+  'step3.thoracic':        { zh: '胸椎 T', en: 'Thoracic' },
+  'step3.lumbar':          { zh: '腰椎 L', en: 'Lumbar' },
   'step3.customRange':     { zh: '自定义范围：', en: 'Custom range:' },
   'step3.startB':          { zh: '启动并行分析', en: 'Start Parallel Analysis' },
   'step3.imageDir':        { zh: '图像目录', en: 'Image Directory' },
@@ -113,9 +119,9 @@ const I18N = {
   'step4.generate':        { zh: '生成合并表格', en: 'Generate Table' },
   'step4.download':        { zh: '下载 CSV文件', en: 'Download CSV' },
   'step4.preview':         { zh: '数据预览', en: 'Data Preview' },
-  'step4.cervical':        { zh: '颈椎 C', en: 'Cervical (C)' },
-  'step4.thoracic':        { zh: '胸椎 T', en: 'Thoracic (T)' },
-  'step4.lumbar':          { zh: '腰椎 L', en: 'Lumbar (L)' },
+  'step4.cervical':        { zh: '颈椎 C', en: 'Cervical' },
+  'step4.thoracic':        { zh: '胸椎 T', en: 'Thoracic' },
+  'step4.lumbar':          { zh: '腰椎 L', en: 'Lumbar' },
 
   // ===== 导航 =====
   'nav.prev':    { zh: '上一步', en: 'Previous' },
@@ -148,9 +154,9 @@ const I18N = {
   'viewer.wlBone':     { zh: '骨窗', en: 'Bone' },
   'viewer.axial':      { zh: '轴位 Axial', en: 'Axial' },
   'viewer.sagittal':   { zh: '矢状位 Sagittal', en: 'Sagittal' },
-  'viewer.coronal':    { zh: '冠状位 Coronal', en: 'Coronal' },
+  'viewer.sagittal2':  { zh: '矢状位（椎体定位）', en: 'Sagittal (Vertebrae)' },
   'viewer.info':       { zh: '图像信息', en: 'Image Info' },
-  'viewer.infoEmpty':  { zh: '加载序列后显示图像信息', en: 'Image info appears after loading a series' },
+  'viewer.coronal':    { zh: '冠状位 Coronal', en: 'Coronal' },
   'viewer.hint':       { zh: '滚轮/滑块：浏览层面 · 左键点击：MPR定位', en: 'Wheel/slider: browse slices · Left click: MPR positioning' },
 
   // ===== 数据表格 =====
@@ -163,6 +169,7 @@ const I18N = {
   'table.status':   { zh: '状态', en: 'Status' },
   'table.detail':   { zh: '详情', en: 'Detail' },
   'table.files':    { zh: '个文件', en: 'files' },
+  'table.noLabelFolder': { zh: '无可用标签', en: 'no available label' },
   'table.csvFiles': { zh: '个CSV', en: 'CSVs' },
 
   // ===== 通用按钮/标签 =====
@@ -172,8 +179,8 @@ const I18N = {
   'btn.deselect': { zh: '取消全选', en: 'Clear All' },
 
   // ===== 页脚 =====
-  'footer': { zh: 'BodyCompass — CT组织成分统计分析平台 v1.0  |  基于 BOA (Body and Organ Analysis) + TotalSegmentator  |  用于医学研究目的',
-              en: 'BodyCompass — CT Tissue Analysis Platform v1.0  |  Based on BOA + TotalSegmentator  |  For medical research' },
+  'footer': { zh: 'BodyCompass — CT组织成分统计分析平台 v1.1  |  基于 BOA (Body and Organ Analysis) + TotalSegmentator  |  用于医学研究目的',
+              en: 'BodyCompass — CT Tissue Analysis Platform v1.1  |  Based on BOA + TotalSegmentator  |  For medical research' },
 
   // ===== JS动态文本 =====
   'js.scanFoundDetail': { zh: '检测到 {n} 个序列（{type}）', en: 'Detected {n} series ({type})' },
@@ -225,6 +232,18 @@ const I18N = {
 function t(key, params) {
   const entry = I18N[key];
   let text = entry ? (entry[currentLang] || entry['en']) : key;
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      text = text.replace(`{${k}}`, v);
+    });
+  }
+  return text;
+}
+
+/** 始终返回英文翻译（控制台等需要固定英文的位置使用） */
+function tEn(key, params) {
+  const entry = I18N[key];
+  let text = entry ? entry['en'] : key;
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       text = text.replace(`{${k}}`, v);
