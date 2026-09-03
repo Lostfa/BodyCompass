@@ -77,4 +77,18 @@ python -m uvicorn app:app --host 127.0.0.1 --port 8000
 
 ## 许可证
 
-仅用于学术研究，如用于科研工作请引用上述论文。
+Copyright (c) 2026 wuzhifa
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+本仓库包含内置的第三方 BOA（Body-and-Organ-Analysis）代码（`boa/` 目录），其各自的版权与许可请以对应上游项目为准。
