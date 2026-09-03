@@ -28,6 +28,7 @@ from statistic.tissue_statistic import (
     load_image_files,
     extract_all_region,
     extract_vertebra_region,
+    extract_vertebra_range,
     calculate_tissue_statistics,
     get_vertebra_center_coordinates,
     save_results_to_csv,
@@ -47,12 +48,12 @@ def _process_single_patient_modeb(args_tuple: tuple) -> Tuple[str, List[str]]:
     但接收参数化的椎体列表、范围列表和椎体组合配置。
 
     参数:
-        args_tuple: (base_path, patient_path, vertebrae, ranges, include_all)
+        args_tuple: (base_path, patient_path, vertebrae, ranges, include_all, vertebra_ranges)
 
     返回:
         (patient_id, messages) 元组
     """
-    base_path, patient_path, vertebrae, ranges, include_all = args_tuple
+    base_path, patient_path, vertebrae, ranges, include_all, vertebra_ranges = args_tuple
     filename = os.path.basename(patient_path)
     patient_id = filename[:-7]  # 去掉 .nii.gz
     messages = []
@@ -102,6 +103,28 @@ def _process_single_patient_modeb(args_tuple: tuple) -> Tuple[str, List[str]]:
             except Exception as e:
                 messages.append(f"[EXCEPTION] {patient_id}: {label} - {e}")
 
+    # 3) 两个椎体之间的范围（如 T1-T12）
+    for start_name, end_name in vertebra_ranges:
+        label = f"{start_name}-{end_name}"
+        try:
+            center_start = get_vertebra_center_coordinates(bca_array, total_array, start_name)
+            center_end = get_vertebra_center_coordinates(bca_array, total_array, end_name)
+            if center_start is None or center_end is None:
+                messages.append(f"[FAIL] {patient_id}: {label} - vertebra center not found")
+                continue
+            slice_start = np.zeros_like(total_array)
+            slice_start[center_start[0], :, :] = 1
+            slice_end = np.zeros_like(total_array)
+            slice_end[center_end[0], :, :] = 1
+            tissue_region, range_val = extract_vertebra_range(slice_start, slice_end, tissues_array)
+            if tissue_region is None:
+                messages.append(f"[FAIL] {patient_id}: {label} - tissue region extraction failed")
+                continue
+            stats_df = calculate_tissue_statistics(ct_array, tissue_region, voxel_volume)
+            messages.append(_save_csv(label, stats_df, range_val))
+        except Exception as e:
+            messages.append(f"[EXCEPTION] {patient_id}: {label} - {e}")
+
     return patient_id, messages
 
 
@@ -121,7 +144,12 @@ def _process_single_tissue_label(args: tuple):
     image_path, label_path, fat_min, fat_max, muscle_min, muscle_max = args
     patient_id = os.path.basename(label_path)
 
+    # body 身体蒙版：兼容 BOA 输出命名（body.nii / body.nii.gz）
     body_path = os.path.join(label_path, 'body.nii')
+    if not os.path.isfile(body_path):
+        alt_body = os.path.join(label_path, 'body.nii.gz')
+        if os.path.isfile(alt_body):
+            body_path = alt_body
     bca_path = os.path.join(label_path, 'bca.nii.gz')
     total_path = os.path.join(label_path, 'total.nii.gz')
 
@@ -198,6 +226,7 @@ def run_mode_b_analysis(
     vertebrae: Optional[List[str]] = None,
     ranges: Optional[List[int]] = None,
     include_all: bool = True,
+    vertebra_ranges: Optional[List[tuple]] = None,
     custom_thresholds: Optional[dict] = None,
 ):
     """
@@ -216,10 +245,12 @@ def run_mode_b_analysis(
         vertebrae: 要分析的椎体列表（默认全部）
         ranges: 分析范围列表（毫米）
         include_all: 是否包含全图分析
+        vertebra_ranges: 椎体范围列表，每项为 (start, end) 元组，如 [("T1", "T12")]
         custom_thresholds: 自定义阈值dict，包含 enabled, fat_min, fat_max, muscle_min, muscle_max
     """
     vertebrates = vertebrae or DEFAULT_VERTEBRA_LIST
     rngs = ranges or DEFAULT_RANGE_LIST
+    v_ranges = vertebra_ranges or []
 
     patient_paths = sorted(glob.glob(f"{base_path}/ct_image/*.nii.gz"))
     if not patient_paths:
@@ -298,7 +329,7 @@ def run_mode_b_analysis(
     fail_count = 0
 
     task_args = [
-        (base_path, p, vertebrates, rngs, include_all)
+        (base_path, p, vertebrates, rngs, include_all, v_ranges)
         for p in patient_paths
     ]
 

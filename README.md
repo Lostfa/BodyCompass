@@ -1,8 +1,14 @@
-﻿# BodyCompass v1.1
+﻿# BodyCompass v1.2
 
 <img src="screenshot.png" alt="BodyCompass Screenshot" width="100%">
 
 An integrated, interactive CT tissue composition analysis platform: from raw DICOM/NIfTI images to statistical CSV reports, with an embedded cornerstone.js-based MPR image viewer.
+
+## What's New in v1.2
+
+- **New analysis mode**: all slices between two vertebrae (e.g. T1–T12); multiple ranges can be added
+- **UI**: clearer mode names (whole-volume / single-vertebra / two-vertebra)
+- **Defaults**: tissue-threshold regeneration enabled by default; preprocessing HU max changed to 1000; Gaussian blur enabled by default with sigma 0.5
 
 ## Features
 

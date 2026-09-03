@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BodyCompass - CT组织成分统计分析平台</title>
-<link rel="stylesheet" href="/static/css/style.css?v=20260818n">
+<link rel="stylesheet" href="/static/css/style.css?v=20260903a">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
     <div>
       <div class="title-row">
         <h1 data-i18n="app.title">CT 组织成分统计分析平台</h1>
-        <span class="version-tag">v1.1</span>
+        <span class="version-tag">v1.2</span>
         <div class="lang-switch">
           <button class="lang-btn active" data-lang="en" onclick="switchLanguage('en')">EN</button>
           <button class="lang-btn" data-lang="zh" onclick="switchLanguage('zh')">中文</button>
@@ -169,10 +169,10 @@
         <input type="number" id="step1HuMin" value="-1000" step="1" style="width:100px;">
         <span>~</span>
         <span data-i18n="step1.huMax">最大值</span>
-        <input type="number" id="step1HuMax" value="3000" step="1" style="width:100px;">
+        <input type="number" id="step1HuMax" value="1000" step="1" style="width:100px;">
         <span>HU</span>
       </div>
-      <div class="option-hint" data-i18n="step1.huHint">CT值超出此范围的体素将被裁剪，默认范围 [-1000, 3000] HU</div>
+      <div class="option-hint" data-i18n="step1.huHint">CT值超出此范围的体素将被裁剪，默认范围 [-1000, 1000] HU</div>
     </div>
 
     <hr class="divider">
@@ -180,14 +180,14 @@
     <!-- 高斯模糊 -->
     <div class="option-group">
       <div class="option-label" style="cursor:pointer;">
-        <input type="checkbox" id="step1GaussianEnable" style="margin-right:6px;">
+        <input type="checkbox" id="step1GaussianEnable" checked style="margin-right:6px;">
         <span data-i18n="step1.gaussianEnable">启用高斯模糊</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
         <span data-i18n="step1.sigmaParam">Sigma 参数</span>
-        <input type="number" id="step1GaussianSigma" value="1.5" step="0.1" min="0.5" max="2.5"
-               style="width:90px;" disabled onkeydown="return false" onpaste="return false">
-        <span class="option-hint" data-i18n="step1.sigmaHint">（范围 0.5 ~ 2.5，默认 1.5）</span>
+        <input type="number" id="step1GaussianSigma" value="0.5" step="0.1" min="0.5" max="2.0"
+               style="width:90px;" onkeydown="return false" onpaste="return false">
+        <span class="option-hint" data-i18n="step1.sigmaHint">（范围 0.5 ~ 2.0，默认 0.5）</span>
       </div>
       <div class="option-hint" data-i18n="step1.gaussianHint">对重采样后的图像进行三维高斯平滑（sitk.DiscreteGaussian）</div>
     </div>
@@ -340,7 +340,7 @@
 
     <div class="option-group">
       <label class="option-label" style="cursor:pointer;">
-        <input type="checkbox" id="step3ThresholdEnable"> <span data-i18n="step3.thresholdEnable">更改组织阈值设定</span>
+        <input type="checkbox" id="step3ThresholdEnable" checked> <span data-i18n="step3.thresholdEnable">更改组织阈值设定</span>
       </label>
     </div>
 
@@ -374,22 +374,37 @@
     <div class="mode-panel active" id="modeBPanel">
       <div class="option-group">
         <label class="option-label" style="cursor:pointer;">
-          <input type="checkbox" id="step3IncludeAll" checked style="margin-right:6px;"><span data-i18n="step3.includeAll">全图分析 (ALL)</span>
+          <input type="checkbox" id="step3IncludeAll" checked style="margin-right:6px;"><span data-i18n="step3.includeAll">全层面分析</span>
         </label>
+        <div class="option-hint" data-i18n="step3.includeAllHint">分析扫描序列的所有层面</div>
       </div>
+
+      <hr class="divider">
 
       <div class="option-group">
         <div class="option-label">
-          <span data-i18n="step3.singleVert">目标椎体</span>
+          <span data-i18n="step3.singleVert">单个锥体分析</span>
           <span class="select-all-link" onclick="toggleGroup('step3VertGrid',true)" data-i18n="btn.selectAll">全选</span>
-          <span class="select-all-link" onclick="toggleGroup('step3VertGrid',false)" data-i18n="btn.deselect">取消全选</span>
+          <span class="select-all-link" onclick="toggleGroup('step3VertGrid',false)" data-i18n="btn.deselect">取消选择</span>
         </div>
+        <div class="option-hint" data-i18n="step3.singleVertHint">分析以单个锥体为中心的指定范围</div>
         <div class="tag-grid" id="step3VertGrid"></div>
       </div>
       <div class="option-group">
         <div class="option-label" data-i18n="step3.range">分析范围（mm）</div>
         <div class="tag-grid" id="step3RangeGrid"></div>
         <div id="step3CustomRange"></div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="option-group">
+        <div class="option-label">
+          <span data-i18n="step3.vertRange">两个锥体间范围分析</span>
+        </div>
+        <div class="option-hint" data-i18n="step3.vertRangeHint">分析起始与结束椎体中心之间的所有层面（如 T1-T12），可添加多组范围</div>
+        <div id="step3VertRangeList"></div>
+        <button class="btn btn-outline btn-sm mt-sm" id="step3AddVertRange" type="button" data-i18n="step3.vertRangeAdd">+ 添加范围</button>
       </div>
 
       <div class="form-row mt-md">
@@ -461,15 +476,30 @@
       <div class="tag-grid" id="exportRangeGrid"></div>
     </div>
 
+    <div class="option-group" id="exportVertPairGroup" style="display:none;">
+      <div class="option-label">
+        <span data-i18n="step4.vertRange">椎体范围</span>
+        <span class="select-all-link" onclick="toggleGroup('exportVertPairGrid',true)" data-i18n="btn.selectAll">全选</span>
+        <span class="select-all-link" onclick="toggleGroup('exportVertPairGrid',false)" data-i18n="btn.deselect">取消选择</span>
+      </div>
+      <div class="tag-grid" id="exportVertPairGrid"></div>
+    </div>
+
   </div>
 
   <div class="card">
-    <div class="card-title"><span data-i18n="step4.card3.title">组织成分选择</span><span class="required-star" data-i18n="step4.required">（至少选一项）</span></div>
+    <div class="card-title"><span data-i18n="step4.card3.title">组织成分选择</span><span class="required-star" data-i18n="step4.required">（至少选一项）</span>
+      <span class="select-all-link" onclick="toggleGroup('exportTissueGrid',true)" data-i18n="btn.selectAll">全选</span>
+      <span class="select-all-link" onclick="toggleGroup('exportTissueGrid',false)" data-i18n="btn.deselect">取消选择</span>
+    </div>
     <div class="tag-grid" id="exportTissueGrid"></div>
   </div>
 
   <div class="card">
-    <div class="card-title"><span data-i18n="step4.card4.title">统计学指标选择</span><span class="required-star" data-i18n="step4.required">（至少选一项）</span></div>
+    <div class="card-title"><span data-i18n="step4.card4.title">统计学指标选择</span><span class="required-star" data-i18n="step4.required">（至少选一项）</span>
+      <span class="select-all-link" onclick="toggleGroup('exportMetricGrid',true)" data-i18n="btn.selectAll">全选</span>
+      <span class="select-all-link" onclick="toggleGroup('exportMetricGrid',false)" data-i18n="btn.deselect">取消选择</span>
+    </div>
     <div class="tag-grid" id="exportMetricGrid"></div>
   </div>
 
@@ -590,17 +620,17 @@
 </div><!-- /.app-body -->
 
 <footer class="app-footer" data-i18n="footer">
-  BodyCompass — CT组织成分统计分析平台 v1.1 &nbsp;|&nbsp;
-  基于 https://github.com/UMEssen/Body-and-Organ-Analysis 和 https://github.com/wasserth/TotalSegmentator &nbsp;|&nbsp;
-  用于医学研究目的
+  BodyCompass — CT组织成分统计分析平台 v1.2 &nbsp;|&nbsp;
+  基于 https://github.com/UMEssen/Body-and-Organ-Analysis 与 https://github.com/wasserth/TotalSegmentator &nbsp;|&nbsp;
+  仅供医学研究目的
 </footer>
 
 <!-- JavaScript -->
-<script src="/static/vendor/cornerstone.bundle.js?v=20260818n"></script>
-<script src="/static/js/lang.js?v=20260818n"></script>
-<script src="/static/js/api.js?v=20260818n"></script>
-<script src="/static/js/viewer.js?v=20260818n"></script>
-<script src="/static/js/wizard.js?v=20260818n"></script>
-<script src="/static/js/app.js?v=20260818n"></script>
+<script src="/static/vendor/cornerstone.bundle.js?v=20260903a"></script>
+<script src="/static/js/lang.js?v=20260903a"></script>
+<script src="/static/js/api.js?v=20260903a"></script>
+<script src="/static/js/viewer.js?v=20260903a"></script>
+<script src="/static/js/wizard.js?v=20260903a"></script>
+<script src="/static/js/app.js?v=20260903a"></script>
 </body>
 </html>

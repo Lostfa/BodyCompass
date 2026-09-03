@@ -26,6 +26,7 @@ class GenerateMergeRequest(BaseModel):
     include_all: bool = True
     single_vertebrae: List[str] = []
     ranges: List[int] = []
+    vertebra_pairs: List[str] = []
     tissues: List[str] = []
     metrics: List[str] = []
     patient_ids: Optional[List[str]] = None
@@ -56,7 +57,7 @@ async def api_generate_merge(request: GenerateMergeRequest):
     - 椎体组合 (如 T1-T12) × 组织 × 指标
     """
     # 验证输入
-    if not request.include_all and not request.single_vertebrae:
+    if not request.include_all and not request.single_vertebrae and not request.vertebra_pairs:
         raise HTTPException(status_code=400, detail="请至少选择一种扫描类型")
 
     if not request.tissues:
@@ -78,7 +79,7 @@ async def api_generate_merge(request: GenerateMergeRequest):
             include_all=request.include_all,
             single_vertebrae=request.single_vertebrae,
             ranges=request.ranges,
-            vertebra_pairs=[],
+            vertebra_pairs=request.vertebra_pairs,
             tissues=request.tissues,
             metrics=request.metrics,
             patient_ids=request.patient_ids,

@@ -107,6 +107,82 @@ function renderVertebraOptions(defaults) {
   if (rangeGrid) rangeGrid.innerHTML = '';
 }
 
+// ===== 椎体范围分析（两椎体之间）=====
+
+function sortVertebraeForRange(arr) {
+  const numSort = (a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1));
+  return [
+    ...arr.filter(v => v.startsWith('C')).sort(numSort),
+    ...arr.filter(v => v.startsWith('T')).sort(numSort),
+    ...arr.filter(v => v.startsWith('L')).sort(numSort),
+  ];
+}
+
+function vertRangeSelectOptions(selected, placeholder) {
+  const list = sortVertebraeForRange(AppState.analysis.vertebrae || []);
+  const labels = { C: t('step3.cervical'), T: t('step3.thoracic'), L: t('step3.lumbar') };
+  let html = `<option value="">${placeholder || '--'}</option>`;
+  ['C', 'T', 'L'].forEach(prefix => {
+    const vs = list.filter(v => v.startsWith(prefix));
+    if (!vs.length) return;
+    html += `<optgroup label="${labels[prefix] || prefix}">` + vs.map(v =>
+      `<option value="${v}"${v === selected ? ' selected' : ''}>${v}</option>`).join('') + '</optgroup>';
+  });
+  return html;
+}
+
+function addVertRangeRow() {
+  const list = document.getElementById('step3VertRangeList');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'vert-range-row';
+  row.innerHTML = `
+    <select class="vert-range-select vr-start">${vertRangeSelectOptions('', t('step3.vertRangeStart'))}</select>
+    <span class="vert-range-sep">~</span>
+    <select class="vert-range-select vr-end">${vertRangeSelectOptions('', t('step3.vertRangeEnd'))}</select>
+    <button class="btn btn-outline btn-sm vr-remove" type="button" title="${t('step3.vertRangeRemove')}">&#10005;</button>`;
+  list.appendChild(row);
+}
+
+function collectVertRangePairs() {
+  const list = document.getElementById('step3VertRangeList');
+  if (!list) return [];
+  const pairs = [];
+  for (const row of list.querySelectorAll('.vert-range-row')) {
+    const start = row.querySelector('.vr-start').value;
+    const end = row.querySelector('.vr-end').value;
+    if (!start && !end) continue; // 未填写的空行忽略
+    if (!start || !end) { alert(t('js.vertRangeIncomplete')); return null; }
+    if (start === end) { alert(t('js.vertRangeSame')); return null; }
+    pairs.push({ start, end });
+  }
+  return pairs;
+}
+
+function initVertRangeUI() {
+  const list = document.getElementById('step3VertRangeList');
+  if (!list) return;
+  const addBtn = document.getElementById('step3AddVertRange');
+  if (addBtn) addBtn.addEventListener('click', addVertRangeRow);
+
+  list.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('vert-range-select')) return;
+    const row = e.target.closest('.vert-range-row');
+    const other = e.target.classList.contains('vr-start')
+      ? row.querySelector('.vr-end') : row.querySelector('.vr-start');
+    if (e.target.value && e.target.value === other.value) {
+      alert(t('js.vertRangeSame'));
+      e.target.value = '';
+    }
+  });
+
+  list.addEventListener('click', (e) => {
+    if (e.target.classList.contains('vr-remove')) {
+      e.target.closest('.vert-range-row').remove();
+    }
+  });
+}
+
 function renderTissueMetrics(defaults) {
   const tissueGrid = document.getElementById('exportTissueGrid');
   if (tissueGrid && defaults.tissues) {
@@ -160,6 +236,7 @@ function initStep1() {
   document.getElementById('step1GaussianEnable').addEventListener('change', (e) => {
     document.getElementById('step1GaussianSigma').disabled = !e.target.checked;
   });
+  document.getElementById('step1GaussianSigma').disabled = !document.getElementById('step1GaussianEnable').checked;
 
   // 浏览图像（步骤1）
   document.getElementById('btnViewImage1').addEventListener('click', async () => {
@@ -194,7 +271,7 @@ function initStep1() {
     const huMin = parseInt(document.getElementById('step1HuMin').value) || -3000;
     const huMax = parseInt(document.getElementById('step1HuMax').value) || 3000;
     const gaussianEnable = document.getElementById('step1GaussianEnable').checked;
-    const gaussianSigma = gaussianEnable ? (parseFloat(document.getElementById('step1GaussianSigma').value) || 1.5) : 0.0;
+    const gaussianSigma = gaussianEnable ? (parseFloat(document.getElementById('step1GaussianSigma').value) || 0.5) : 0.0;
     const outputNaming = document.querySelector('input[name="step1OutputNaming"]:checked')?.value || 'original';
 
     AppState.baseWorkingDir = outputPath;
@@ -285,8 +362,12 @@ function initStep2() {
   });
 
   // 扫描NIfTI文件（步骤2）
-  document.getElementById('btnScanStep2').addEventListener('click', () => {
-    refreshBOAPatients();
+  document.getElementById('btnScanStep2').addEventListener('click', async () => {
+    await refreshBOAPatients();
+    const n = (AppState.boa.patients || []).length;
+    showStatusBox('step2EnvStatus', n > 0 ? 'info' : 'error',
+      n > 0 ? 'js.scanFoundSeries' : 'js.scanNoData',
+      {n: n});
   });
 
   // 浏览图像（步骤2）
@@ -436,6 +517,11 @@ function initStep3() {
       document.getElementById(id).disabled = !this.checked;
     });
   });
+  thresholdInputs.forEach(id => {
+    document.getElementById(id).disabled = !document.getElementById('step3ThresholdEnable').checked;
+  });
+
+  initVertRangeUI();
 
   document.getElementById('btnScanDirs').addEventListener('click', async () => {
     let ctDir = document.getElementById('step3CtDir').value.trim();
@@ -523,9 +609,12 @@ function initStep3() {
     const muscleMin = parseInt(document.getElementById('step3MuscleMin').value) || -29;
     const muscleMax = parseInt(document.getElementById('step3MuscleMax').value) || 150;
 
+    const vertebraRanges = collectVertRangePairs();
+    if (vertebraRanges === null) return;
+
     try {
       const result = await apiStartModeB(basePath, workers, vertebrae, ranges, includeAll,
-        thresholdEnabled, fatMin, fatMax, muscleMin, muscleMax);
+        thresholdEnabled, fatMin, fatMax, muscleMin, muscleMax, vertebraRanges);
       AppState.analysis.taskId = result.task_id;
       document.getElementById('btnStartModeB').disabled = true;
       document.getElementById('btnCancelStep3').style.display = 'inline-flex';
@@ -573,7 +662,7 @@ async function refreshExportData() {
 
     if (result.total > 0) {
       showStatusBox('step4Status', 'info', 'js.scanCSVFound',
-        {n: `<b>${result.total}</b>`, c: `<b>${result.total_csv_files || 0}</b>`});
+        {n: `<b>${result.total}</b>`, c: `<b>${result.total}</b>`});
     } else {
       showStatusBox('step4Status', 'error', 'js.scanCSVEmpty');
     }
@@ -646,6 +735,18 @@ function renderExportScanOptions(result) {
   } else if (rangeGrid) {
     rangeGrid.innerHTML = `<span style="font-size:12px;color:#999;">${t('js.noRangeData')}</span>`;
   }
+
+  const pairGroup = document.getElementById('exportVertPairGroup');
+  const pairGrid = document.getElementById('exportVertPairGrid');
+  const pairs = result.available_pairs || [];
+  if (pairGrid) {
+    if (pairGroup) pairGroup.style.display = pairs.length > 0 ? '' : 'none';
+    pairGrid.innerHTML = pairs.map(p =>
+      `<div class="tag-item">
+        <input type="checkbox" id="ex_pair_${p}" value="${p}">
+        <label for="ex_pair_${p}">${p}</label>
+      </div>`).join('');
+  }
 }
 
 function initStep4() {
@@ -655,17 +756,18 @@ function initStep4() {
     const basePath = document.getElementById('step4BasePath').value;
     const includeAll = document.getElementById('exportALL').checked;
     const singleVert = getCheckedValues('exportVertGrid');
+    const vertPairs = getCheckedValues('exportVertPairGrid');
     const ranges = getCheckedValues('exportRangeGrid').map(Number);
     const tissues = getCheckedValues('exportTissueGrid');
     const metrics = getCheckedValues('exportMetricGrid');
 
-    if (!includeAll && singleVert.length === 0) { alert(t('js.selectScanType')); return; }
+    if (!includeAll && singleVert.length === 0 && vertPairs.length === 0) { alert(t('js.selectScanType')); return; }
     if (tissues.length === 0) { alert(t('js.selectTissue')); return; }
     if (metrics.length === 0) { alert(t('js.selectMetric')); return; }
     if (singleVert.length > 0 && ranges.length === 0) { alert(t('js.selectVertRange')); return; }
 
     try {
-      const result = await apiGenerateMerge(basePath, includeAll, singleVert, ranges, [], tissues, metrics, null);
+      const result = await apiGenerateMerge(basePath, includeAll, singleVert, ranges, vertPairs, tissues, metrics, null);
       AppState.export.taskId = result.task_id;
       document.getElementById('btnStep4Generate').disabled = true;
       switchRightTab('console');

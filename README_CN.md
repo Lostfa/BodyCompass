@@ -1,8 +1,14 @@
-﻿# BodyCompass v1.1
+﻿# BodyCompass v1.2
 
 <img src="screenshot.png" alt="BodyCompass 截图" width="100%">
 
 一体化可交互 CT 组织成分分析平台：从原始 DICOM/NIfTI 图像到统计 CSV 报告，内置基于 cornerstone.js 的 MPR 图像浏览器。
+
+## v1.2 更新内容
+
+- **新增分析模式**：两个锥体间范围分析（如 T1–T12），支持添加多组范围
+- **界面优化**：分析方式命名更准确（全层面/单个锥体/两个锥体间）
+- **默认值调整**：组织阈值设定默认勾选；预处理 HU 最大值调整为 1000；高斯模糊默认启用（Sigma 0.5）
 
 ## 功能特性
 

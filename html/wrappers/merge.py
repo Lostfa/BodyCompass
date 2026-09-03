@@ -53,6 +53,7 @@ def scan_csv_files(base_path: str) -> dict:
     patients = {}
     all_vertebrae = set()
     all_ranges = set()
+    all_pairs = set()
     has_all = False
     total_csv = 0
 
@@ -83,6 +84,9 @@ def scan_csv_files(base_path: str) -> dict:
                 if identifier == "ALL":
                     has_all = True
                     # ALL 的范围是全图深度，不加入单椎体范围列表
+                elif "-" in identifier and "/" not in identifier:
+                    # 椎体范围标识（如 T1-T12），加入独立的椎体范围列表
+                    all_pairs.add(identifier)
                 else:
                     all_vertebrae.add(identifier)
                     # 仅收集单椎体分析的范围（≤30mm）
@@ -92,9 +96,12 @@ def scan_csv_files(base_path: str) -> dict:
         patients[pid] = file_list
 
     # 按解剖顺序排列椎体（C2→C7, T1→T12, L1→L5）
+    import re as _re
+
     def vertebra_sort_key(v):
         letter = v[0]
-        num = int(v[1:])
+        m = _re.match(r'^\d+', v[1:])
+        num = int(m.group(0)) if m else 0
         order = {'C': 0, 'T': 1, 'L': 2}
         return (order.get(letter, 9), num)
 
@@ -108,6 +115,7 @@ def scan_csv_files(base_path: str) -> dict:
         "has_all": has_all,
         "available_vertebrae": sorted(all_vertebrae, key=vertebra_sort_key),
         "available_ranges": sorted(all_ranges),
+        "available_pairs": sorted(all_pairs),
     }
 
 

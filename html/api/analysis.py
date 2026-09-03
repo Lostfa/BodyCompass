@@ -19,12 +19,20 @@ router = APIRouter(prefix="/api/analysis", tags=["统计分析"])
 
 
 # ---- 请求/响应模型 ----
+class VertebraRangePair(BaseModel):
+    """两个椎体之间的范围，如 {start: T1, end: T12}"""
+    start: str
+    end: str
+
+
 class ModeBRequest(BaseModel):
     base_path: str
     workers: int = 4
     vertebrae: Optional[List[str]] = None
     ranges: Optional[List[int]] = None
     include_all: bool = True
+    # 椎体范围列表：任意两个锥体之间的所有层面（如 T1-T12）
+    vertebra_ranges: Optional[List[VertebraRangePair]] = None
     # 组织阈值设定参数
     threshold_enabled: bool = False
     fat_min: int = -200
@@ -60,6 +68,7 @@ async def start_mode_b_analysis(request: ModeBRequest):
     对 base_path/ct_image/ 中的所有患者，并行执行多项组织成分分析：
     - 全图分析 (ALL)
     - 单椎体+范围（如 L5_1mm, L5_5mm, ...）
+    - 两个椎体之间的范围（如 T1-T12，起点终点含中间所有层面）
 
     结果保存到 base_path/statistic/{patient_id}/*.csv
     """
@@ -73,9 +82,23 @@ async def start_mode_b_analysis(request: ModeBRequest):
     ranges = request.ranges or DEFAULT_RANGE_LIST
     workers = max(1, min(8, request.workers))
 
+    # 校验并规整椎体范围参数
+    vertebra_ranges = []
+    for pair in (request.vertebra_ranges or []):
+        start = (pair.start or "").strip()
+        end = (pair.end or "").strip()
+        if not start or not end:
+            raise HTTPException(status_code=400, detail="椎体范围的起始椎体和结束椎体不能为空")
+        if start == end:
+            raise HTTPException(status_code=400, detail=f"起始椎体和结束椎体不能相同: {start}")
+        if start not in DEFAULT_VERTEBRA_LIST or end not in DEFAULT_VERTEBRA_LIST:
+            raise HTTPException(status_code=400, detail=f"未知椎体: {start}-{end}")
+        vertebra_ranges.append((start, end))
+
     tasks_per_patient = (
         (1 if request.include_all else 0) +
-        len(vertebrae) * len(ranges)
+        len(vertebrae) * len(ranges) +
+        len(vertebra_ranges)
     )
 
     import glob as _glob
@@ -91,6 +114,7 @@ async def start_mode_b_analysis(request: ModeBRequest):
             vertebrae=vertebrae,
             ranges=ranges,
             include_all=request.include_all,
+            vertebra_ranges=vertebra_ranges,
             custom_thresholds={
                 "enabled": request.threshold_enabled,
                 "fat_min": request.fat_min,

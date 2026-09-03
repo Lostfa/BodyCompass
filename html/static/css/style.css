@@ -222,6 +222,20 @@ body {
 .custom-range-val { font-weight: 700; color: var(--primary); min-width: 28px; text-align: center; font-family: var(--mono); }
 .custom-range-row input[type="range"] { width: 140px; }
 
+/* ---- 椎体范围分析行 ---- */
+.vert-range-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  padding: 6px 10px; background: #fbfcfd; border-radius: 2px;
+  border: 1px solid var(--border-light);
+}
+.vert-range-select {
+  flex: 0 1 16.66%; min-width: 90px; padding: 5px 8px; font-size: 13px;
+  font-family: var(--font); color: var(--text);
+  border: 1px solid var(--border); border-radius: 2px; background: #fff;
+}
+.vert-range-sep { color: var(--text-muted); font-weight: 600; }
+.vert-range-row .vr-remove { padding: 3px 10px; }
+
 /* ---- 表格 ---- */
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 2px; max-height: 340px; background: #fff; }
 .table-wrap.table-fill { flex: 1; max-height: none; height: 100%; }

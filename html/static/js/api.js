@@ -183,13 +183,14 @@ function apiScanAnalysisDirs(workDir, ctDir, labelDir) {
 }
 function apiStartModeB(basePath, workers, vertebrae, ranges, includeAll,
                        thresholdEnabled = false, fatMin = -190, fatMax = -30,
-                       muscleMin = -29, muscleMax = 150) {
+                       muscleMin = -29, muscleMax = 150, vertebraRanges = []) {
   return apiPost('/api/analysis/mode-b/start', {
     base_path: basePath,
     workers: workers,
     vertebrae: vertebrae,
     ranges: ranges,
     include_all: includeAll,
+    vertebra_ranges: vertebraRanges,
     threshold_enabled: thresholdEnabled,
     fat_min: fatMin,
     fat_max: fatMax,
@@ -212,7 +213,7 @@ function apiGenerateMerge(basePath, includeAll, singleVert, ranges, vertPairs, t
     include_all: includeAll,
     single_vertebrae: singleVert,
     ranges: ranges,
-    vertebra_pairs: [],
+    vertebra_pairs: vertPairs || [],
     tissues: tissues,
     metrics: metrics,
     patient_ids: patientIds,
